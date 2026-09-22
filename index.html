@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volcano Evader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a0d0a; /* Dark volcanic ash sky */
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #video-layer, #canvas-layer, #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Video flipped horizontally for natural mirror feel */
+        #video-layer {
+            transform: scaleX(-1);
+            object-fit: cover;
+            z-index: 1;
+            opacity: 0.45;
+            filter: sepia(0.7) hue-rotate(-30deg) saturate(1.8);
+        }
+
+        #canvas-layer {
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        #ui-layer {
+            z-index: 4;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        .score-board {
+            background: rgba(20, 15, 12, 0.88);
+            padding: 10px 14px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+            display: inline-block;
+            pointer-events: auto;
+            border: 1px solid #ea580c;
+            backdrop-filter: blur(4px);
+        }
+
+        .score-text { color: #f3f4f6; }
+        
+        .title {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #f97316;
+            text-shadow: 2px 2px 6px #000, 0 0 12px #dc2626;
+            text-align: center;
+            margin-top: 10px;
+            letter-spacing: 2px;
+        }
+
+        .volcano-bg {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30%;
+            background: linear-gradient(to top, #0f0504, transparent);
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        .lava-river {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 12%;
+            background: linear-gradient(to bottom, #f97316, #991b1b);
+            z-index: 2;
+            pointer-events: none;
+            opacity: 0.85;
+            box-shadow: 0 -10px 25px #ea580c;
+        }
+
+        /* Modals styling */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 5, 2, 0.82);
+            z-index: 10;
+            pointer-events: auto;
+            backdrop-filter: blur(3px);
+        }
+
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #231613;
+            border: 2px solid #ea580c;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 10px 35px rgba(234, 88, 12, 0.35);
+            text-align: center;
+            z-index: 11;
+            pointer-events: auto;
+            max-width: 92%;
+            width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+            color: #fff;
+        }
+
+        .btn {
+            background: linear-gradient(to right, #ea580c, #c2410c);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            margin-top: 16px;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        .btn:hover {
+            transform: scale(1.03);
+            box-shadow: 0 0 16px #ea580c;
+        }
+        
+        .quiz-btn {
+            background: #36221d;
+            border: 1px solid #ea580c;
+            margin-top: 8px;
+            font-size: 0.95rem;
+            padding: 12px 14px;
+            width: 100%;
+            text-align: left;
+            border-radius: 8px;
+            transition: background 0.2s, transform 0.1s;
+            color: #f3f4f6;
+        }
+        .quiz-btn:hover {
+            background: #543128;
+            transform: translateX(4px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #fbbf24;
+            background: rgba(15, 8, 5, 0.9);
+            padding: 20px 30px;
+            border-radius: 12px;
+            z-index: 100;
+            border: 2px solid #ea580c;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(234, 88, 12, 0.5);
+        }
+        
+        .health-bar-container {
+            width: 100%;
+            height: 18px;
+            background-color: #262626;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #525252;
+            margin-top: 4px;
+        }
+        
+        #health-bar {
+            height: 100%;
+            background: linear-gradient(to right, #ef4444, #f97316);
+            width: 100%;
+            transition: width 0.3s ease-out;
+        }
+
+        .rationalization-box {
+            background-color: #1e293b;
+            border-left: 4px solid #38bdf8;
+            border-radius: 6px;
+            padding: 12px 14px;
+            text-align: left;
+            margin-top: 14px;
+            font-size: 0.9rem;
+            line-height: 1.45;
+            color: #e2e8f0;
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Camera Feed -->
+    <video id="video-layer" autoplay playsinline muted></video>
+    
+    <!-- Canvas Layer for Game Elements -->
+    <canvas id="canvas-layer"></canvas>
+    
+    <!-- Background Ambience -->
+    <div class="volcano-bg"></div>
+    <div class="lava-river"></div>
+
+    <!-- UI Overlay Layer -->
+    <div id="ui-layer">
+        <div class="flex justify-between items-start flex-wrap gap-2">
+            <div class="flex gap-2 flex-wrap">
+                <div class="score-board">
+                    <h2 class="text-sm font-bold score-text flex items-center gap-2">
+                        Score 
+                        <span id="multiplier-badge" class="hidden bg-amber-400 text-black text-xs px-2 py-0.5 rounded-full font-black">x1</span>
+                    </h2>
+                    <div class="text-2xl font-black text-amber-400" id="score">0</div>
+                </div>
+                
+                <div class="score-board w-40">
+                    <h2 class="text-sm font-bold score-text text-center">Shield Integrity</h2>
+                    <div class="health-bar-container">
+                        <div id="health-bar"></div>
+                    </div>
+                    <div class="text-xs font-semibold text-red-400 mt-1 text-center">Hits: <span id="hits-taken">0</span>/3</div>
+                </div>
+
+                <div class="score-board w-44">
+                    <h2 class="text-sm font-bold score-text text-center">Evacuation Intel</h2>
+                    <div class="relative w-full h-3 bg-neutral-800 rounded-full mt-2 mb-1 border border-neutral-600">
+                        <div id="quiz-progress-bar" class="absolute top-0 left-0 h-full bg-blue-500 rounded-full transition-all duration-300" style="width: 0%;"></div>
+                        <div id="quiz-progress-icon" class="absolute top-1/2 -translate-y-1/2 text-base transition-all duration-300 drop-shadow-md z-10" style="left: 0%; margin-left: -8px;">🏃</div>
+                    </div>
+                    <div class="text-xs font-semibold text-blue-300 text-center"><span id="quiz-progress-text">0 / 10</span> Dodges</div>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <div id="control-mode-badge" class="score-board text-xs text-orange-300 font-semibold flex items-center gap-1">
+                    <span>🎮</span> <span id="control-mode-text">Mouse / Touch Mode</span>
+                </div>
+                <div class="score-board">
+                    <h2 class="text-sm font-bold score-text">Time Left</h2>
+                    <div class="text-2xl font-black text-orange-500" id="time">120</div>
+                </div>
+            </div>
+        </div>
+        <div class="title hidden sm:block" id="game-title">VOLCANO EVADER</div>
+    </div>
+    
+    <div id="loading" class="loading">
+        <div class="text-xl mb-1">🌋 Preparing Disaster Zone...</div>
+        <div class="text-xs text-amber-200 opacity-80">Calibrating Hazard Sensors & Controls</div>
+    </div>
+
+    <!-- Start Modal -->
+    <div id="start-modal-overlay" class="modal-overlay hidden"></div>
+    <div id="start-modal" class="modal hidden">
+        <h1 class="text-3xl font-black mb-3 text-orange-500 uppercase tracking-wider">Volcano Evader</h1>
+        <div class="text-neutral-300 mb-5 text-left text-xs sm:text-sm leading-relaxed space-y-2">
+            <p class="font-semibold text-amber-400">Eruption Imminent! Navigate to the safe zone.</p>
+            <p><b>🕹️ Controls:</b> Move your <b>Mouse / Touch screen</b> OR use your <b>Nose</b> via Webcam if enabled!</p>
+            <p><b>☄️ Dodge Hazards:</b> Avoid Volcanic Debris, Lava Rocks, Fireballs & Ash Clouds (🪨, ☄️, 🔥, ☁️).</p>
+            <p><b>🎒 Collect Supplies:</b> Pick up First Aid Kits, Water Bottles, Bug-Out Bags & Radios for health and score boosts.</p>
+            <p><b>📻 Geological Intelligence:</b> Dodge debris or gather radios to trigger Emergency Broadcast Geology Quizzes and double your score multiplier!</p>
+        </div>
+        <button class="btn w-full uppercase tracking-wider" id="start-btn">Begin Evacuation</button>
+    </div>
+
+    <!-- Educational Quiz Modal -->
+    <div id="quiz-modal-overlay" class="modal-overlay hidden"></div>
+    <div id="quiz-modal" class="modal hidden border-blue-500">
+        <div class="text-xs font-bold uppercase tracking-widest text-blue-400 mb-1">Emergency Geology Broadcast 📻</div>
+        <h2 id="quiz-question" class="text-base sm:text-lg text-neutral-100 font-bold mb-3">Incoming transmission...</h2>
+        
+        <div id="quiz-options" class="flex flex-col gap-1.5">
+            <!-- Options dynamically injected -->
+        </div>
+
+        <!-- Feedback & Scientific Rationalization -->
+        <div id="quiz-feedback-container" class="hidden text-left">
+            <p id="quiz-feedback-header" class="text-base font-bold mt-3 mb-1"></p>
+            <div id="quiz-rationalization" class="rationalization-box">
+                <span class="font-bold text-sky-300 block mb-1">🌋 Geology Concept Intel:</span>
+                <span id="quiz-explanation-text"></span>
+            </div>
+        </div>
+
+        <button class="btn w-full hidden mt-4 bg-blue-600 hover:bg-blue-500" style="background: #2563eb;" id="quiz-continue-btn">Acknowledge & Resume</button>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal-overlay" class="modal-overlay hidden"></div>
+    <div id="game-over-modal" class="modal hidden">
+        <h1 class="text-3xl sm:text-4xl font-black mb-2 text-red-600 uppercase" id="game-over-title">Evacuation Failed</h1>
+        <p class="text-lg text-neutral-300 mb-1">Final Survival Score</p>
+        <div class="text-4xl sm:text-5xl font-black text-amber-400 mb-4 drop-shadow-lg" id="final-score">0</div>
+        <p class="text-neutral-400 mb-5 text-xs sm:text-sm" id="feedback-message">The pyroclastic surge overwhelmed your position.</p>
+        <button class="btn w-full uppercase" id="restart-btn">Try Again</button>
+    </div>
+</div>
+
+<script type="module">
+    import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+
+    const originalConsoleError = console.error;
+    console.error = function(...args) {
+        if (args.length > 0 && typeof args[0] === 'string' && (args[0].includes('XNNPACK') || args[0].includes('TensorFlow Lite') || args[0].includes('INFO:'))) {
+            console.info(...args);
+            return;
+        }
+        originalConsoleError.apply(console, args);
+    };
+
+    // DOM Elements
+    const video = document.getElementById('video-layer');
+    const canvas = document.getElementById('canvas-layer');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const multiplierBadge = document.getElementById('multiplier-badge');
+    const hitsTakenEl = document.getElementById('hits-taken');
+    const healthBar = document.getElementById('health-bar');
+    const timeEl = document.getElementById('time');
+    const controlModeText = document.getElementById('control-mode-text');
+    
+    // Modals
+    const startModal = document.getElementById('start-modal');
+    const startOverlay = document.getElementById('start-modal-overlay');
+    const gameOverModal = document.getElementById('game-over-modal');
+    const gameOverOverlay = document.getElementById('game-over-modal-overlay');
+    const gameOverTitle = document.getElementById('game-over-title');
+    const quizModal = document.getElementById('quiz-modal');
+    const quizOverlay = document.getElementById('quiz-modal-overlay');
+    
+    // Buttons & Labels
+    const startBtn = document.getElementById('start-btn');
+    const restartBtn = document.getElementById('restart-btn');
+    const quizContinueBtn = document.getElementById('quiz-continue-btn');
+    const finalScoreEl = document.getElementById('final-score');
+    const gameTitle = document.getElementById('game-title');
+    const loadingEl = document.getElementById('loading');
+    
+    // Progress Bar Elements
+    const quizProgressBar = document.getElementById('quiz-progress-bar');
+    const quizProgressIcon = document.getElementById('quiz-progress-icon');
+    const quizProgressText = document.getElementById('quiz-progress-text');
+
+    // Game Core State
+    let score = 0;
+    let scoreMultiplier = 1;
+    const QUIZ_TARGET = 10;
+    let rocksDodged = 0;
+    
+    let maxHealth = 3;
+    let currentHealth = 3;
+    let timeLeft = 120;
+    let isPlaying = false;
+    let gameLoopId;
+    let timerId;
+    let lastVideoTime = -1;
+    let webcamActive = false;
+    
+    // Difficulty progression
+    let baseSpeed = 2.8; 
+    const MAX_BASE_SPEED = 5.2;
+    let spawnRate = 0.030;
+    const MAX_SPAWN_RATE = 0.058;
+
+    // Control Positioning
+    let faceLandmarker;
+    let playerPos = { x: window.innerWidth / 2, y: window.innerHeight * 0.75 };
+    
+    // Sound FX Synthesis
+    let synth;
+    let noiseSynth;
+    let membraneSynth;
+    let audioInitialized = false;
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        if (!isPlaying) {
+            playerPos.x = canvas.width / 2;
+            playerPos.y = canvas.height * 0.75;
+        }
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function updatePointerPos(e) {
+        let clientX, clientY;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+        if (clientX !== undefined && clientY !== undefined) {
+            playerPos.x = Math.max(30, Math.min(canvas.width - 30, clientX));
+            playerPos.y = Math.max(30, Math.min(canvas.height - 30, clientY));
+        }
+    }
+
+    window.addEventListener('mousemove', updatePointerPos);
+    window.addEventListener('touchmove', updatePointerPos, { passive: true });
+    window.addEventListener('touchstart', updatePointerPos, { passive: true });
+
+    const geologyQuestions = [
+        {
+            q: "Which type of effusive eruption involves basaltic lava flowing quietly from long, linear fissures?",
+            options: ["Icelandic Eruption", "Hawaiian Eruption", "Strombolian Eruption", "Plinian Eruption"],
+            answer: 0,
+            explanation: "Icelandic eruptions occur along rift zones where low-viscosity basaltic lava erupts calmly from long parallel fissures, forming broad lava plateaus rather than central steep cones."
+        },
+        {
+            q: "Fluid basaltic lava creating dramatic fire fountains and low, broad shield volcanoes is typical of which eruption type?",
+            options: ["Hawaiian Eruption", "Strombolian Eruption", "Phreatic Eruption", "Vulcanian Eruption"],
+            answer: 0,
+            explanation: "Hawaiian eruptions feature highly fluid, gas-rich basaltic magma that creates magnificent molten fountains and wide, gently sloped shield volcanoes like Mauna Loa."
+        },
+        {
+            q: "Which eruption type is characterized by rhythmic, mild bursts of glowing lava bombs and incandescent cinder?",
+            options: ["Strombolian Eruption", "Hawaiian Eruption", "Phreatomagmatic Eruption", "Icelandic Eruption"],
+            answer: 0,
+            explanation: "Strombolian eruptions are driven by the bursting of giant gas bubbles at the magma column top, producing periodic, fireworks-like discharges of basaltic ejected spatter and bombs."
+        },
+        {
+            q: "What is a steam-driven explosion called when groundwater is superheated by magma without directly erupting fresh magma?",
+            options: ["Phreatic Eruption", "Phreatomagmatic Eruption", "Plinian Eruption", "Strombolian Eruption"],
+            answer: 0,
+            explanation: "Phreatic eruptions occur when underground water is rapidly heated by nearby magma, flashing into high-pressure steam that blasts away existing rock without discharging fresh molten lava."
+        },
+        {
+            q: "Which highly explosive eruption occurs when rising magma directly collides with groundwater or ice?",
+            options: ["Phreatomagmatic Eruption", "Phreatic Eruption", "Hawaiian Eruption", "Icelandic Eruption"],
+            answer: 0,
+            explanation: "Phreatomagmatic eruptions involve direct contact between hot magma and water, generating intense steam expansion that shatters magma into extremely fine volcanic ash."
+        },
+        {
+            q: "What is the most catastrophic volcanic eruption type, sending gas and ash columns high into the stratosphere?",
+            options: ["Plinian Eruption", "Strombolian Eruption", "Phreatomagmatic Eruption", "Hawaiian Eruption"],
+            answer: 0,
+            explanation: "Plinian eruptions (named after Pliny the Younger) are hyper-violent, sustained eruptions driven by viscous, gas-rich viscous magma (dacite/rhyolite) forming massive ash columns up to 45 km high."
+        },
+        {
+            q: "Which type of basaltic lava flow solidifies with a smooth, ropy, or billowy surface texture?",
+            options: ["Pahoehoe Flow", "A'a Flow", "Pumice", "Scoria"],
+            answer: 0,
+            explanation: "Pahoehoe forms from hot, highly fluid lava that cools into a flexible skin, which gets wrinkled and twisted into characteristic ropy folds as molten lava continues flowing beneath."
+        },
+        {
+            q: "Which type of lava flow cools into a jagged, rough, and sharp clinkery surface?",
+            options: ["A'a Flow", "Pahoehoe Flow", "Obsidian", "Ignimbrite"],
+            answer: 0,
+            explanation: "A'a flows are cooler and move more viscous than Pahoehoe. As the outer crust breaks apart during movement, it forms jagged, razor-sharp rubbly basalt blocks."
+        },
+        {
+            q: "What is a high-speed, lethal avalanche of superheated gas, ash, and volcanic rock fragments called?",
+            options: ["Pyroclastic Flow", "Lahar", "Lava Tube", "Tephra Fall"],
+            answer: 0,
+            explanation: "Pyroclastic flows (or density currents) race down volcanic slopes at speeds exceeding 100 km/h with temperatures up to 1,000°C, making them the most deadly of all volcanic hazards."
+        },
+        {
+            q: "Which gas is released in the greatest volume during volcanic eruptions?",
+            options: ["Water Vapor (H2O)", "Carbon Dioxide (CO2)", "Sulfur Dioxide (SO2)", "Hydrogen Sulfide (H2S)"],
+            answer: 0,
+            explanation: "Water vapor (H2O) accounts for 70% to 90% of total volcanic gases released, followed by carbon dioxide (CO2) and sulfur dioxide (SO2)."
+        },
+        {
+            q: "What is the geological term for a fast-flowing, destructive mudflow composed of volcanic debris and water?",
+            options: ["Lahar", "Pyroclastic Flow", "Magma", "Tephra"],
+            answer: 0,
+            explanation: "Lahars are volcanic mudflows triggered when heavy rain or melted snow mixes with loose volcanic ash and debris, rushing down river valleys like wet concrete."
+        }
+    ];
+
+    // Game Objects
+    const items = [];
+    let particles = [];
+    let floatingTexts = [];
+    
+    const HAZARD_TYPES = ['☄️', '🪨', '🔥', '☁️'];
+    
+    const EVACUATION_GEAR = [
+        { emoji: '🥤', label: 'Water Bottle', points: 25, heal: true },
+        { emoji: '🧰', label: 'First Aid Kit', points: 30, heal: true },
+        { emoji: '🎒', label: 'Bug-Out Bag', points: 50, heal: true },
+        { emoji: '📻', label: 'Radio Signal', points: 35, progress: 2 },
+        { emoji: '🗺️', label: 'Evac Map', points: 30, progress: 2 },
+        { emoji: '🪖', label: 'Safety Helmet', points: 40, heal: true },
+        { emoji: '🔦', label: 'Flashlight', points: 20, progress: 1 }
+    ];
+    
+    const PLAYER_EMOJI = '🏃';
+    const HIT_RADIUS = 48;
+
+    async function setupMediapipe() {
+        try {
+            const vision = await FilesetResolver.forVisionTasks(
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+            );
+            
+            // Try GPU delegate first, fallback to CPU
+            try {
+                faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+                        delegate: "GPU"
+                    },
+                    outputFaceBlendshapes: false,
+                    runningMode: "VIDEO",
+                    numFaces: 1
+                });
+            } catch (gpuErr) {
+                faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+                        delegate: "CPU"
+                    },
+                    outputFaceBlendshapes: false,
+                    runningMode: "VIDEO",
+                    numFaces: 1
+                });
+            }
+            return true;
+        } catch (error) {
+            console.info("MediaPipe unavailable, using Touch/Mouse controls:", error);
+            return false;
+        }
+    }
+
+    async function setupWebcam() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
+            });
+            video.srcObject = stream;
+            return new Promise((resolve) => {
+                video.onloadedmetadata = () => {
+                    video.play();
+                    webcamActive = true;
+                    controlModeText.innerText = "Nose + Touch / Mouse";
+                    resolve(true);
+                };
+                video.onerror = () => resolve(false);
+            });
+        } catch (error) {
+            console.info("Webcam access restricted or unavailable. Mouse/Touch active.");
+            return false;
+        }
+    }
+
+    class Item {
+        constructor(type) {
+            this.x = Math.random() * (canvas.width - 120) + 60;
+            this.y = -70;
+            this.type = type;
+            
+            if (this.type === 'hazard') {
+                this.emoji = HAZARD_TYPES[Math.floor(Math.random() * HAZARD_TYPES.length)];
+                this.size = Math.random() * 30 + 55;
+                const speedScale = Math.min(2.4, score / 450);
+                this.speed = Math.min(8.5, baseSpeed + (Math.random() * 1.2) + speedScale); 
+            } else {
+                this.gear = EVACUATION_GEAR[Math.floor(Math.random() * EVACUATION_GEAR.length)];
+                this.emoji = this.gear.emoji;
+                this.size = 48;
+                this.speed = Math.min(5.5, baseSpeed * 0.85); 
+            }
+            
+            this.rotation = Math.random() * Math.PI * 2;
+            this.rotationSpeed = (Math.random() - 0.5) * 0.08;
+            this.active = true;
+            this.dodged = false;
+        }
+
+        update() {
+            this.y += this.speed;
+            this.rotation += this.rotationSpeed;
+
+            if (this.type === 'hazard' && this.active && !this.dodged && this.y > playerPos.y + 40) {
+                this.dodged = true;
+                handleDodge();
+            }
+
+            if (this.y > canvas.height + this.size && this.active) {
+                if (this.type === 'hazard') {
+                    createExplosion(this.x, canvas.height - 15, '#ea580c', 8);
+                    if (audioInitialized && Math.random() > 0.6) {
+                        noiseSynth.triggerAttackRelease("16n", Tone.now(), 0.08);
+                    }
+                }
+                this.active = false;
+            }
+        }
+
+        draw(ctx) {
+            if (!this.active) return;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.rotation);
+            ctx.font = `${this.size}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            if (this.type === 'hazard') {
+                ctx.shadowBlur = 14;
+                ctx.shadowColor = '#dc2626';
+            } else {
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#3b82f6';
+            }
+            
+            ctx.fillText(this.emoji, 0, 0);
+            ctx.restore();
+        }
+    }
+
+    class FloatingText {
+        constructor(x, y, text, color = '#38bdf8') {
+            this.x = x;
+            this.y = y;
+            this.text = text;
+            this.color = color;
+            this.life = 1.0;
+            this.vy = -1.8;
+        }
+        update() {
+            this.y += this.vy;
+            this.life -= 0.025;
+        }
+        draw(ctx) {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.font = 'bold 20px Inter, sans-serif';
+            ctx.fillStyle = this.color;
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = '#000';
+            ctx.fillText(this.text, this.x, this.y);
+            ctx.restore();
+        }
+    }
+
+    class Particle {
+        constructor(x, y, color, speedMultiplier = 1) {
+            this.x = x;
+            this.y = y;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 7 * speedMultiplier;
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+            this.life = 1.0;
+            this.decay = Math.random() * 0.04 + 0.02;
+            this.color = color;
+            this.size = Math.random() * 5 + 2;
+            this.gravity = 0.2;
+        }
+        
+        update() {
+            this.x += this.vx;
+            this.vy += this.gravity;
+            this.y += this.vy;
+            this.life -= this.decay;
+        }
+        
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    function createExplosion(x, y, color, count = 18) {
+        for(let i=0; i<count; i++) {
+            particles.push(new Particle(x, y, color, 1.4));
+            if(Math.random() > 0.5) particles.push(new Particle(x, y, '#404040', 0.8));
+        }
+    }
+
+    function addScore(points) {
+        score += points * scoreMultiplier;
+        updateUI();
+    }
+
+    function takeDamage() {
+        currentHealth--;
+        
+        document.body.style.transform = 'translate(8px, 8px)';
+        setTimeout(() => document.body.style.transform = 'translate(-8px, -8px)', 50);
+        setTimeout(() => document.body.style.transform = 'translate(8px, -8px)', 100);
+        setTimeout(() => document.body.style.transform = 'translate(0, 0)', 150);
+        
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(239, 68, 68, 0.4)';
+        overlay.style.zIndex = '9999';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.transition = 'opacity 0.3s ease';
+        document.body.appendChild(overlay);
+        
+        setTimeout(() => {
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 300);
+        }, 50);
+        
+        if (audioInitialized) {
+            membraneSynth.triggerAttackRelease("C1", "8n");
+            noiseSynth.triggerAttackRelease("4n", Tone.now(), 0.8);
+        }
+        
+        scoreMultiplier = 1;
+        updateUI();
+        
+        if (currentHealth <= 0) {
+            endGame(false);
+        }
+    }
+    
+    function heal() {
+        if (currentHealth < maxHealth) {
+            currentHealth++;
+        }
+        if (audioInitialized) {
+            synth.triggerAttackRelease(["C5", "E5", "G5"], "8n");
+        }
+        updateUI();
+    }
+
+    function handleDodge() {
+        rocksDodged++;
+        addScore(10);
+        updateUI();
+        
+        if (rocksDodged >= QUIZ_TARGET) {
+            if (audioInitialized) {
+                synth.triggerAttackRelease("C5", "16n");
+                synth.triggerAttackRelease("C6", "16n", Tone.now() + 0.1);
+            }
+            setTimeout(() => {
+                if (isPlaying) triggerQuiz();
+                rocksDodged = 0;
+                updateUI();
+            }, 250);
+        }
+    }
+
+    function updateUI() {
+        scoreEl.innerText = score;
+        hitsTakenEl.innerText = maxHealth - currentHealth;
+        
+        const healthPercent = (currentHealth / maxHealth) * 100;
+        healthBar.style.width = `${healthPercent}%`;
+        
+        if (currentHealth === 3) healthBar.style.background = 'linear-gradient(to right, #22c55e, #16a34a)';
+        else if (currentHealth === 2) healthBar.style.background = 'linear-gradient(to right, #eab308, #ea580c)';
+        else healthBar.style.background = 'linear-gradient(to right, #ef4444, #991b1b)';
+        
+        const progressPercent = Math.min((rocksDodged / QUIZ_TARGET) * 100, 100);
+        quizProgressBar.style.width = `${progressPercent}%`;
+        quizProgressIcon.style.left = `${progressPercent}%`;
+        quizProgressText.innerText = `${rocksDodged} / ${QUIZ_TARGET}`;
+        
+        if (scoreMultiplier > 1) {
+            multiplierBadge.innerText = `x${scoreMultiplier}`;
+            multiplierBadge.classList.remove('hidden');
+        } else {
+            multiplierBadge.classList.add('hidden');
+        }
+    }
+
+    let currentQuizData = null;
+
+    function triggerQuiz() {
+        isPlaying = false; 
+        clearInterval(timerId); 
+        cancelAnimationFrame(gameLoopId);
+        
+        quizOverlay.classList.remove('hidden');
+        quizModal.classList.remove('hidden');
+        document.getElementById('quiz-feedback-container').classList.add('hidden');
+        quizContinueBtn.classList.add('hidden');
+        document.getElementById('quiz-options').classList.remove('hidden');
+
+        currentQuizData = geologyQuestions[Math.floor(Math.random() * geologyQuestions.length)];
+        document.getElementById('quiz-question').innerText = currentQuizData.q;
+        
+        const optionsContainer = document.getElementById('quiz-options');
+        optionsContainer.innerHTML = '';
+        
+        let indices = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+        
+        indices.forEach(i => {
+            const btn = document.createElement('button');
+            btn.className = 'btn quiz-btn';
+            btn.innerText = currentQuizData.options[i];
+            btn.onclick = () => handleQuizAnswer(i === currentQuizData.answer, currentQuizData.options[i]);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    function handleQuizAnswer(isCorrect, selectedText) {
+        document.getElementById('quiz-options').classList.add('hidden');
+        const feedbackContainer = document.getElementById('quiz-feedback-container');
+        const feedbackHeader = document.getElementById('quiz-feedback-header');
+        const explanationText = document.getElementById('quiz-explanation-text');
+        
+        feedbackContainer.classList.remove('hidden');
+        quizContinueBtn.classList.remove('hidden');
+
+        const correctAnswerText = currentQuizData.options[currentQuizData.answer];
+
+        if (isCorrect) {
+            scoreMultiplier *= 2; 
+            addScore(50);
+            feedbackHeader.innerText = "✅ Correct Analysis!";
+            feedbackHeader.className = "text-base font-bold mt-3 mb-1 text-green-400";
+            if (audioInitialized) synth.triggerAttackRelease(["C5", "E5", "G5"], "4n");
+        } else {
+            feedbackHeader.innerText = `❌ Inaccurate Assessment. Correct Answer: "${correctAnswerText}"`;
+            feedbackHeader.className = "text-base font-bold mt-3 mb-1 text-red-400";
+            if (audioInitialized) synth.triggerAttackRelease(["C4", "F3"], "4n");
+        }
+
+        explanationText.innerText = currentQuizData.explanation;
+        updateUI();
+    }
+
+    quizContinueBtn.onclick = () => {
+        quizOverlay.classList.add('hidden');
+        quizModal.classList.add('hidden');
+        
+        isPlaying = true;
+        lastVideoTime = -1; 
+        
+        timerId = setInterval(updateTimer, 1000);
+        predictAndDraw();
+    };
+
+    function updateTimer() {
+        timeLeft--;
+        timeEl.innerText = timeLeft;
+        if (timeLeft <= 10) timeEl.style.color = '#ef4444';
+        else timeEl.style.color = '#f97316';
+        
+        if (timeLeft % 10 === 0) {
+            if (baseSpeed < MAX_BASE_SPEED) baseSpeed += 0.15;
+            if (spawnRate < MAX_SPAWN_RATE) spawnRate += 0.003;
+        }
+
+        if (timeLeft <= 0) endGame(true);
+    }
+
+    function drawVolcanoAsh() {
+        ctx.save();
+        ctx.fillStyle = `rgba(25, 10, 5, 0.12)`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+    }
+
+    function spawnItem() {
+        if (items.length > 7) return; 
+
+        if (Math.random() < spawnRate) { 
+            const type = Math.random() > 0.76 ? 'bonus' : 'hazard';
+            items.push(new Item(type));
+        }
+    }
+
+    function checkCollisions() {
+        items.forEach(item => {
+            if (!item.active) return;
+
+            const dx = item.x - playerPos.x;
+            const dy = item.y - playerPos.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            const actualHitRadius = (item.type === 'hazard') ? HIT_RADIUS * 0.75 : HIT_RADIUS;
+
+            if (distance < actualHitRadius + item.size / 2) {
+                item.active = false;
+                
+                if (item.type === 'hazard') {
+                    createExplosion(item.x, item.y, '#ea580c', 28);
+                    takeDamage();
+                } else if (item.type === 'bonus') {
+                    const gear = item.gear;
+                    createExplosion(item.x, item.y, '#3b82f6', 16);
+                    
+                    if (gear.heal) heal();
+                    if (gear.progress) {
+                        rocksDodged = Math.min(QUIZ_TARGET, rocksDodged + gear.progress);
+                    }
+                    
+                    addScore(gear.points);
+                    floatingTexts.push(new FloatingText(item.x, item.y - 20, `+${gear.points} ${gear.label}!`, '#60a5fa'));
+                    
+                    if (rocksDodged >= QUIZ_TARGET) {
+                        setTimeout(() => {
+                            if (isPlaying) triggerQuiz();
+                            rocksDodged = 0;
+                            updateUI();
+                        }, 250);
+                    }
+                }
+            }
+        });
+    }
+
+    async function predictAndDraw() {
+        if (!isPlaying) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawVolcanoAsh();
+
+        // Face Landmarker processing if webcam is functional
+        if (webcamActive && video.currentTime !== lastVideoTime && faceLandmarker) {
+            lastVideoTime = video.currentTime;
+            try {
+                const results = faceLandmarker.detectForVideo(video, performance.now());
+                if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+                    const noseLandmark = results.faceLandmarks[0][1];
+                    playerPos.x = (1 - noseLandmark.x) * canvas.width;
+                    playerPos.y = noseLandmark.y * canvas.height;
+                }
+            } catch(e) {
+                // Ignore frame processing glitch silently
+            }
+        }
+
+        // Draw Evacuee Player Avatar
+        ctx.font = '64px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(PLAYER_EMOJI, playerPos.x, playerPos.y);
+        
+        // Draw Shield Aura
+        if (currentHealth > 0) {
+            ctx.beginPath();
+            ctx.arc(playerPos.x, playerPos.y, 52, 0, Math.PI * 2);
+            if(currentHealth === 3) ctx.strokeStyle = 'rgba(34, 197, 94, 0.45)';
+            else if(currentHealth === 2) ctx.strokeStyle = 'rgba(234, 179, 8, 0.45)';
+            else ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+
+        spawnItem();
+        checkCollisions();
+
+        for (let i = items.length - 1; i >= 0; i--) {
+            items[i].update();
+            items[i].draw(ctx);
+            if (!items[i].active && items[i].y > canvas.height) items.splice(i, 1);
+        }
+        
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            particles[i].draw(ctx);
+            if(particles[i].life <= 0) particles.splice(i, 1);
+        }
+
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+            floatingTexts[i].update();
+            floatingTexts[i].draw(ctx);
+            if(floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
+        }
+
+        if (isPlaying) {
+            gameLoopId = requestAnimationFrame(predictAndDraw);
+        }
+    }
+
+    async function startGame() {
+        if (!audioInitialized) {
+            try {
+                await Tone.start();
+                synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                noiseSynth = new Tone.NoiseSynth({
+                    noise: { type: 'brown' },
+                    envelope: { attack: 0.05, decay: 0.3, sustain: 0.1, release: 0.5 }
+                }).toDestination();
+                membraneSynth = new Tone.MembraneSynth().toDestination();
+                audioInitialized = true;
+            } catch(e) {}
+        }
+        
+        if (audioInitialized) {
+            synth.triggerAttackRelease(["C4", "F4"], "2n");
+        }
+
+        startModal.classList.add('hidden');
+        startOverlay.classList.add('hidden');
+        gameOverModal.classList.add('hidden');
+        gameOverOverlay.classList.add('hidden');
+        gameTitle.classList.add('hidden');
+        
+        score = 0;
+        scoreMultiplier = 1;
+        rocksDodged = 0;
+        currentHealth = maxHealth;
+        timeLeft = 120; 
+        baseSpeed = 2.8;
+        spawnRate = 0.030;
+        items.length = 0;
+        particles.length = 0;
+        floatingTexts.length = 0;
+        
+        updateUI();
+        timeEl.innerText = timeLeft;
+        
+        isPlaying = true;
+        timerId = setInterval(updateTimer, 1000);
+        predictAndDraw();
+    }
+
+    function endGame(survived) {
+        isPlaying = false;
+        clearInterval(timerId);
+        cancelAnimationFrame(gameLoopId);
+        
+        gameOverOverlay.classList.remove('hidden');
+        gameOverModal.classList.remove('hidden');
+        
+        if (survived) {
+            gameOverTitle.innerText = "EVACUATION SUCCESSFUL";
+            gameOverTitle.className = "text-3xl sm:text-4xl font-black mb-2 text-green-500 uppercase";
+            document.getElementById('feedback-message').innerText = "You successfully bypassed the eruption zone! Rescue teams extracted you.";
+            if (audioInitialized) synth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "1n");
+            
+            score += currentHealth * 100;
+        } else {
+            gameOverTitle.innerText = "OVERWHELMED";
+            gameOverTitle.className = "text-3xl sm:text-4xl font-black mb-2 text-red-600 uppercase";
+            document.getElementById('feedback-message').innerText = "Volcanic hazards breached your position. Shield Integrity depleted.";
+            if (audioInitialized) membraneSynth.triggerAttackRelease("C1", "1n");
+        }
+        
+        finalScoreEl.innerText = score;
+    }
+
+    async function init() {
+        loadingEl.classList.remove('hidden');
+        
+        // Non-blocking initialization
+        await setupMediapipe();
+        await setupWebcam();
+        
+        loadingEl.classList.add('hidden');
+        startOverlay.classList.remove('hidden');
+        startModal.classList.remove('hidden');
+        
+        playerPos.x = canvas.width / 2;
+        playerPos.y = canvas.height * 0.75;
+    }
+
+    startBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', startGame);
+
+    window.onload = init;
+</script>
+</body>
+</html>
